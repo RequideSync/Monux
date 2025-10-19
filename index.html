@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI診断カメラ</title>
+<style>
+  body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
+  video, canvas { border: 1px solid #ccc; border-radius: 8px; }
+  button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<h1>AI診断カメラ</h1>
+<video id="camera" width="320" height="240" autoplay></video>
+<canvas id="snapshot" width="320" height="240" style="display:none;"></canvas>
+<div>
+    <button id="capture">撮影</button>
+    <button id="send">送信</button>
+</div>
+<p id="status"></p>
+<script>
+const video = document.getElementById("camera");
+const canvas = document.getElementById("snapshot");
+const ctx = canvas.getContext("2d");
+const statusText = document.getElementById("status");
+
+// Webカメラ起動
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => { video.srcObject = stream; })
+    .catch(err => { statusText.innerText = "カメラが使えません: " + err; });
+
+// 撮影ボタン
+document.getElementById("capture").addEventListener("click", () => {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.style.display = "block";
+    statusText.innerText = "写真を撮影しました！";
+});
+
+// Discord Webhook に送信
+document.getElementById("send").addEventListener("click", async () => {
+    if (canvas.style.display === "none") {
+        alert("まず写真を撮影してください！");
+        return;
+    }
+
+    const webhookURL = "https://discord.com/api/webhooks/1429505829798936647/mPKcBIlVxzQBe0pgCmHcui6lBzjLc35VHT6XzmQ8k6M82hMk3ZrOoRpj6ClLeXEgwuGT"; // ←ここをBotのWebhookに変更
+    statusText.innerText = "送信中...";
+
+    canvas.toBlob(async (blob) => {
+        const form = new FormData();
+        form.append("file", blob, "photo.png");
+
+        try {
+            const res = await fetch(webhookURL, {
+                method: "POST",
+                body: form
+            });
+            if (res.ok) {
+                statusText.innerText = "送信成功！Discord BotでAI診断されます。";
+            } else {
+                statusText.innerText = "送信失敗: " + res.status;
+            }
+        } catch (err) {
+            statusText.innerText = "送信エラー: " + err;
+        }
+    }, "image/png");
+});
+</script>
+
+</body>
+</html>
